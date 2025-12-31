@@ -1,83 +1,68 @@
-from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException
+from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException, Request
 from fastapi.responses import JSONResponse
-from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-import os
-import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Dict, Optional
-import uuid
+from typing import List, Optional
 from datetime import datetime, timezone
-import sys
+import os
 import csv
 import io
-import uvicorn
-
-# Add easyfinder to path
-sys.path.insert(0, str(Path(__file__).parent))
+import uuid
+import logging
 
 from easyfinder.ingestion import load_leads, parse_lead_data
 from easyfinder.scoring import score_lead, get_lead_priority
 from easyfinder.outreach import send_nda_email
 from easyfinder.logging import log_event, get_logs, clear_logs
 
+# -------------------------------------------------------------------
+# App setup
+# -------------------------------------------------------------------
+
 ROOT_DIR = Path(__file__).parent
+DATA_DIR = ROOT_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
 
+app = FastAPI(title="EasyFinder API")
 
-# MongoDB connection
-mongo_url = os.getenv("MONGO_URL")
-db_name = os.getenv("DB_NAME", "easyfinder_db")
+# -------------------------------------------------------------------
+# MongoDB
+# -------------------------------------------------------------------
 
-if not mongo_url:
+MONGO_URL = os.getenv("MONGO_URL")
+DB_NAME = os.getenv("DB_NAME", "easyfinder_db")
+
+if not MONGO_URL:
     raise RuntimeError("MONGO_URL environment variable not set")
-
-app = FastAPI()
 
 @app.on_event("startup")
 async def startup_db():
-    mongo_url = os.getenv("MONGO_URL")
-    db_name = os.getenv("DB_NAME", "easyfinder_db")
+    app.state.mongo_client = AsyncIOMotorClient(MONGO_URL)
+    app.state.db = app.state.mongo_client[DB_NAME]
 
-    if not mongo_url:
-        raise RuntimeError("MONGO_URL environment variable not set")
+@app.on_event("shutdown")
+async def shutdown_db():
+    app.state.mongo_client.close()
 
-    app.state.mongo_client = AsyncIOMotorClient(mongo_url)
-    app.state.db = app.state.mongo_client[db_name]
+# -------------------------------------------------------------------
+# Router
+# -------------------------------------------------------------------
 
-
-# Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# -----------------------
+# -------------------------------------------------------------------
 # Models
-# -----------------------
+# -------------------------------------------------------------------
 
 class StatusCheck(BaseModel):
     model_config = ConfigDict(extra="ignore")
-
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     client_name: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-
 class StatusCheckCreate(BaseModel):
     client_name: str
-
-
-class Lead(BaseModel):
-    name: str
-    email: str
-    company: str
-    company_size: str
-    industry: str
-    budget: str
-    phone: str = ""
-    website: str = ""
-    score: Optional[int] = None
-    priority: Optional[str] = None
-
 
 class ProcessResponse(BaseModel):
     total_leads: int
@@ -85,181 +70,134 @@ class ProcessResponse(BaseModel):
     emails_sent: int
     message: str
 
-
-    
-# -----------------------
+# -------------------------------------------------------------------
 # Routes
-# -----------------------
+# -------------------------------------------------------------------
 
 @api_router.get("/")
 async def root():
     return {"message": "Hello World"}
 
-
 @api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
+async def create_status_check(
+    input: StatusCheckCreate,
+    request: Request
+):
+    status = StatusCheck(client_name=input.client_name)
 
-    doc = status_obj.model_dump()
+    doc = status.model_dump()
     doc["timestamp"] = doc["timestamp"].isoformat()
 
-await request.app.state.db.status_checks.insert_one(doc)
-    return status_obj
-
+    await request.app.state.db.status_checks.insert_one(doc)
+    return status
 
 @api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
+async def get_status_checks(request: Request):
+    records = await request.app.state.db.status_checks.find(
+        {}, {"_id": 0}
+    ).to_list(1000)
 
-    for check in status_checks:
-        if isinstance(check.get("timestamp"), str):
-            check["timestamp"] = datetime.fromisoformat(check["timestamp"])
+    for r in records:
+        r["timestamp"] = datetime.fromisoformat(r["timestamp"])
 
-    return status_checks
+    return records
 
-
-# -----------------------
-# EasyFinder AI Endpoints
-# -----------------------
+# -------------------------------------------------------------------
+# Leads
+# -------------------------------------------------------------------
 
 @api_router.get("/leads")
 async def get_leads():
-    """Get all leads with their scores."""
-    try:
-        csv_path = "/app/backend/data/leads.csv"
-        raw_leads = load_leads(csv_path)
-        leads = parse_lead_data(raw_leads)
+    csv_path = DATA_DIR / "leads.csv"
 
-        scored_leads = []
-        for lead in leads:
-            score = score_lead(lead)
-            priority = get_lead_priority(score)
-            lead["score"] = score
-            lead["priority"] = priority
-            scored_leads.append(lead)
+    raw_leads = load_leads(str(csv_path))
+    leads = parse_lead_data(raw_leads)
 
-        scored_leads.sort(key=lambda x: x["score"], reverse=True)
+    for lead in leads:
+        score = score_lead(lead)
+        lead["score"] = score
+        lead["priority"] = get_lead_priority(score)
 
-        return {
-            "success": True,
-            "count": len(scored_leads),
-            "leads": scored_leads
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    leads.sort(key=lambda x: x["score"], reverse=True)
 
+    return {
+        "success": True,
+        "count": len(leads),
+        "leads": leads,
+    }
 
 @api_router.post("/leads/upload")
 async def upload_leads(file: UploadFile = File(...)):
-    """Upload a CSV file with leads."""
-    try:
-        content = await file.read()
-        csv_content = content.decode("utf-8")
+    content = await file.read()
+    csv_content = content.decode("utf-8")
 
-        csv_reader = csv.DictReader(io.StringIO(csv_content))
-        required_fields = ["name", "email", "company", "company_size", "industry", "budget"]
+    csv_reader = csv.DictReader(io.StringIO(csv_content))
+    required_fields = ["name", "email", "company", "company_size", "industry", "budget"]
 
-        if not all(field in csv_reader.fieldnames for field in required_fields):
-            raise HTTPException(
-                status_code=400,
-                detail=f"CSV must contain these fields: {', '.join(required_fields)}"
-            )
+    if not all(field in csv_reader.fieldnames for field in required_fields):
+        raise HTTPException(
+            status_code=400,
+            detail=f"CSV must contain: {', '.join(required_fields)}"
+        )
 
-        csv_path = "/app/backend/data/leads.csv"
-        with open(csv_path, "w", encoding="utf-8") as f:
-            f.write(csv_content)
+    csv_path = DATA_DIR / "leads.csv"
+    csv_path.write_text(csv_content, encoding="utf-8")
 
-        log_event("CSV_UPLOADED", {
-            "filename": file.filename,
-            "timestamp": datetime.utcnow().isoformat()
-        })
+    log_event("CSV_UPLOADED", {"filename": file.filename})
 
-        return {
-            "success": True,
-            "message": "CSV uploaded successfully",
-            "filename": file.filename
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+    return {"success": True, "filename": file.filename}
 
 @api_router.post("/leads/process", response_model=ProcessResponse)
 async def process_leads():
-    """Process all leads: score them and send emails to high-priority leads."""
-    try:
-        csv_path = "/app/backend/data/leads.csv"
-        raw_leads = load_leads(csv_path)
-        leads = parse_lead_data(raw_leads)
+    csv_path = DATA_DIR / "leads.csv"
+    raw_leads = load_leads(str(csv_path))
+    leads = parse_lead_data(raw_leads)
 
-        high_priority_count = 0
-        emails_sent = 0
-        EMAIL_THRESHOLD = 70
+    EMAIL_THRESHOLD = 70
+    high_priority_count = 0
+    emails_sent = 0
 
-        for lead in leads:
-            score = score_lead(lead)
-            priority = get_lead_priority(score)
+    for lead in leads:
+        score = score_lead(lead)
+        priority = get_lead_priority(score)
 
-            log_event("LEAD_SCORED", {
-                "name": lead.get("name"),
-                "email": lead.get("email"),
-                "company": lead.get("company"),
-                "score": score,
-                "priority": priority
-            })
+        log_event("LEAD_SCORED", {
+            "email": lead.get("email"),
+            "score": score,
+            "priority": priority
+        })
 
-            if score >= EMAIL_THRESHOLD and lead.get("email"):
-                high_priority_count += 1
-                success = send_nda_email(
-                    to_email=lead["email"],
-                    lead_name=lead.get("name", "there"),
-                    company=lead.get("company", "your company")
-                )
-                if success:
-                    emails_sent += 1
+        if score >= EMAIL_THRESHOLD and lead.get("email"):
+            high_priority_count += 1
+            if send_nda_email(
+                lead["email"],
+                lead.get("name", "there"),
+                lead.get("company", "")
+            ):
+                emails_sent += 1
 
-        return ProcessResponse(
-            total_leads=len(leads),
-            high_priority_count=high_priority_count,
-            emails_sent=emails_sent,
-            message=f"Processed {len(leads)} leads successfully"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return ProcessResponse(
+        total_leads=len(leads),
+        high_priority_count=high_priority_count,
+        emails_sent=emails_sent,
+        message="Leads processed successfully"
+    )
 
+# -------------------------------------------------------------------
+# Logs
+# -------------------------------------------------------------------
 
 @api_router.get("/logs")
 async def get_activity_logs(limit: int = 100):
-    """Get activity logs."""
-    try:
-        logs = get_logs(limit)
-        return {
-            "success": True,
-            "count": len(logs),
-            "logs": logs
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+    return {"success": True, "logs": get_logs(limit)}
 
 @api_router.delete("/logs")
 async def clear_activity_logs():
-    """Clear all activity logs."""
-    try:
-        clear_logs()
-        return {
-            "success": True,
-            "message": "Logs cleared successfully"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    clear_logs()
+    return {"success": True}
 
-
+# -------------------------------------------------------------------
 # Register router
+# -------------------------------------------------------------------
+
 app.include_router(api_router)
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run("backend.server:app", host="0.0.0.0", port=port)
-
