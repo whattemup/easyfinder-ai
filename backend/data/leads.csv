@@ -1,0 +1,16 @@
+name,email,company,company_size,industry,budget,phone,website
+John Smith,john.smith@techcorp.com,TechCorp Industries,enterprise,construction,75000,+1-555-0101,techcorp.com
+Sarah Johnson,sarah.j@logisticspro.com,LogisticsPro LLC,enterprise,logistics,120000,+1-555-0102,logisticspro.com
+Michael Chen,mchen@equipmentking.com,Equipment King,medium,equipment,55000,+1-555-0103,equipmentking.com
+Emily Davis,emily.davis@retailmax.com,RetailMax Corp,small,retail,15000,+1-555-0104,retailmax.com
+David Wilson,dwilson@constructionplus.com,Construction Plus,enterprise,construction,95000,+1-555-0105,constructionplus.com
+Lisa Anderson,lisa.a@transportinc.com,Transport Inc,medium,transportation,45000,+1-555-0106,transportinc.com
+Robert Brown,rbrown@manufactureco.com,ManufactureCo,enterprise,manufacturing,80000,+1-555-0107,manufactureco.com
+Jennifer Taylor,jtaylor@smallbiz.com,SmallBiz Solutions,small,consulting,8000,+1-555-0108,smallbiz.com
+William Martinez,wmartinez@megaconstruct.com,Mega Construction,enterprise,construction,150000,+1-555-0109,megaconstruct.com
+Mary Garcia,mgarcia@logisticsexpress.com,Logistics Express,medium,logistics,60000,+1-555-0110,logisticsexpress.com
+James Rodriguez,jrodriguez@equipmentdepot.com,Equipment Depot,enterprise,equipment,110000,+1-555-0111,equipmentdepot.com
+Patricia Lee,plee@startupventures.com,Startup Ventures,small,technology,5000,+1-555-0112,startupventures.com
+Charles White,cwhite@industrialparts.com,Industrial Parts Co,medium,manufacturing,35000,+1-555-0113,industrialparts.com
+Linda Harris,lharris@constructionservices.com,Construction Services,enterprise,construction,88000,+1-555-0114,constructionservices.com
+Thomas Clark,tclark@freightmaster.com,FreightMaster,medium,logistics,52000,+1-555-0115,freightmaster.com
