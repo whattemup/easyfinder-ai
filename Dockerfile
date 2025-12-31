@@ -26,7 +26,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /usr/src/app
 USER appuser
 
-ENV PORT=8080
 EXPOSE 8080
 
-CMD ["sh", "-c", "uvicorn backend.server:app --host 0.0.0.0 --port $PORT"]
+CMD ["python", "backend/server.py"]
