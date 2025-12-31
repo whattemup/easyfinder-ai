@@ -13,7 +13,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy requirements.txt if it exists (using wildcard to avoid build failure)
-COPY requirements.tx[t] ./requirements.txt
+COPY requirements.txt ./requirements.txt
 
 # Install Python dependencies only if requirements.txt exists
 RUN pip install --upgrade pip &&     if [ -f requirements.txt ]; then         pip install -r requirements.txt;     fi
