@@ -3,6 +3,7 @@ primary_region = "sjc"
 
 [http_service]
   internal_port = 8080
+  protocol = "tcp"
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
@@ -16,3 +17,4 @@ primary_region = "sjc"
   memory = "1gb"
   cpu_kind = "shared"
   cpus = 1
+
