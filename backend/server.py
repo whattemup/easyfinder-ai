@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 import sys
 import csv
 import io
+import uvicorn
 
 # Add easyfinder to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -31,10 +32,14 @@ db_name = os.getenv("DB_NAME")
 
 if not mongo_url or not db_name:
     raise RuntimeError("MONGO_URL or DB_NAME environment variable not set")
-
+    
 client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
 
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run("backend.server:app", host="0.0.0.0", port=port)
+    
 # Create the main app
 app = FastAPI()
 
@@ -77,6 +82,7 @@ class ProcessResponse(BaseModel):
     message: str
 
 
+    
 # -----------------------
 # Routes
 # -----------------------
