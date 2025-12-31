@@ -1,0 +1,28 @@
+Subject: Private Demo & NDA – EasyFinder AI
+
+Hello {{name}},
+
+Thank you for your interest in EasyFinder AI.
+
+Based on {{company}}'s profile, we believe our enterprise-grade AI system could significantly enhance your lead management and outreach operations.
+
+Why EasyFinder AI?
+- Intelligent Lead Scoring: AI-powered scoring with explainable criteria
+- Automated Outreach: Personalized, compliant email campaigns
+- Audit Trail: Complete tracking and logging for compliance
+- Enterprise Security: NDA-protected, secure implementation
+
+Next Steps:
+We'd like to invite you to a private demo of our system. Before we proceed, we'll need you to review and sign our NDA to protect both parties.
+
+Our team will reach out within 24 hours to arrange a convenient time for your personalized demonstration.
+
+Looking forward to showing you how EasyFinder AI can transform your lead management process!
+
+Best regards,
+The EasyFinder AI Team
+demo@easyfinder.ai
+
+---
+© 2025 EasyFinder AI. All rights reserved.
+This is an automated message.
