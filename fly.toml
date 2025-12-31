@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for easyfinderai1 on 2025-12-31T12:56:31Z
+# fly.toml app configuration file generated for easyfinderai on 2025-12-31T13:18:30Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'easyfinderai1'
+app = 'easyfinderai'
 primary_region = 'sjc'
 
 [build]
