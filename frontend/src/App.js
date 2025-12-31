@@ -14,11 +14,12 @@ function App() {
   const [stats, setStats] = useState({ total: 0, high: 0, medium: 0, low: 0 });
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  useEffect(() => {
+    useEffect(() => {
     fetchLeads();
     fetchLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
+  
   const fetchLeads = async () => {
     setLoading(true);
     try {
