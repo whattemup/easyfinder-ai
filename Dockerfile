@@ -1,6 +1,6 @@
 FROM python:3.10 AS build
 
-WORKDIR /usr/src/app/backend
+WORKDIR /usr/src/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -16,12 +16,13 @@ COPY . .
 
 FROM python:3.10
 
-WORKDIR /usr/src/app/backend
+WORKDIR /usr/src/app
+
+ENV PYTHONPATH=/usr/src/app
+ENV PATH="/opt/venv/bin:$PATH"
 
 COPY --from=build /opt/venv /opt/venv
 COPY --from=build /usr/src/app .
-
-ENV PATH="/opt/venv/bin:$PATH"
 
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /usr/src/app
 USER appuser
