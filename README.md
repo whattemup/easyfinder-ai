@@ -1,4 +1,4 @@
-<img src="assets/logo.png" />
+<img src="https://raw.githubusercontent.com/whattemup/easyfinder-ai/app/assets/logo.png">
 "# EasyFinder AI - Enterprise Lead Management System
 ![EasyFinder AI](https://img.shields.io/badge/EasyFinder-AI-blue)
 ![Python](https://img.shields.io/badge/Python-3.9+-green)
