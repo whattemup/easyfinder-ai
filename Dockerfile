@@ -1,6 +1,6 @@
 FROM python:3.10 AS build
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/app/backend
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -16,7 +16,7 @@ COPY . .
 
 FROM python:3.10
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/app/backend
 
 COPY --from=build /opt/venv /opt/venv
 COPY --from=build /usr/src/app .
@@ -28,4 +28,4 @@ USER appuser
 
 EXPOSE 8080
 
-CMD ["python", "backend/server.py"]
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]
