@@ -33,14 +33,19 @@ db_name = os.getenv("DB_NAME", "easyfinder_db")
 if not mongo_url:
     raise RuntimeError("MONGO_URL environment variable not set")
 
-client = AsyncIOMotorClient(mongo_url)
-db = client[db_name]
-
-# -----------------------
-# Create the main app
-# -----------------------
-
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup_db():
+    mongo_url = os.getenv("MONGO_URL")
+    db_name = os.getenv("DB_NAME", "easyfinder_db")
+
+    if not mongo_url:
+        raise RuntimeError("MONGO_URL environment variable not set")
+
+    app.state.mongo_client = AsyncIOMotorClient(mongo_url)
+    app.state.db = app.state.mongo_client[db_name]
+
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -99,7 +104,7 @@ async def create_status_check(input: StatusCheckCreate):
     doc = status_obj.model_dump()
     doc["timestamp"] = doc["timestamp"].isoformat()
 
-    await db.status_checks.insert_one(doc)
+await request.app.state.db.status_checks.insert_one(doc)
     return status_obj
 
 
